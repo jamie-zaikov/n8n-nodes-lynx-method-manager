@@ -1,0 +1,77 @@
+name: CI
+
+# Quality + security gates for the n8n community node package.
+# Mirrors the node pipeline from the source monorepo: lint · build (type-check)
+# · unit tests · dependency audit, plus a working-tree/history secret scan.
+# Runs on every PR into main and on direct pushes to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── lint · build (type-check) · unit tests · dep audit ──────────────────────
+  node:
+    name: node
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node 22 matches the package's engines (>=22) and n8n's runtime.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # --ignore-scripts skips native postinstall builds. The only native dep is
+      # isolated-vm (pulled transitively by the n8n-workflow dev dependency for
+      # its Code-node sandbox) — never used for lint/build/test, only at n8n
+      # runtime — so we skip compiling it here.
+      - name: Install (clean, from lockfile, no native builds)
+        run: npm ci --ignore-scripts
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Build (TypeScript type-check + icon copy)
+        run: npm run build
+
+      - name: Unit tests (Jest)
+        run: npm test
+
+      # The published package ships ZERO runtime dependencies (n8n-workflow is a
+      # peerDependency provided by the host n8n; everything else is devOnly), so
+      # the production audit surface is empty. --omit=dev fails the build on any
+      # HIGH/CRITICAL advisory in what actually ships. The remaining dev-tree
+      # advisories (form-data, uuid, js-yaml under the pinned n8n-workflow) never
+      # reach users and cannot be cleared via `overrides` — the n8n community
+      # package scanner forbids that field.
+      - name: Dependency vulnerability audit (production surface)
+        run: npm audit --omit=dev --audit-level=high
+
+  # ── Secret scanning across the working tree + history (gitleaks) ────────────
+  secret-scan:
+    name: secret-scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so historical commits are scanned too
+
+      - name: Run gitleaks
+        run: |
+          set -euo pipefail
+          VERSION=8.21.2
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks dir . --redact --no-banner --exit-code 1
+          ./gitleaks git . --redact --no-banner --exit-code 1

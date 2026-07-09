@@ -1,0 +1,65 @@
+{
+  "name": "n8n-nodes-lynx-method-manager",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "n8n community nodes to control Dynamic Devices Lynx liquid handlers via the Method Manager REST API",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "lynx",
+    "dynamic-devices",
+    "liquid-handler",
+    "lab-automation",
+    "method-manager"
+  ],
+  "homepage": "https://github.com/jamie-zaikov/n8n-nodes-lynx-method-manager",
+  "author": {
+    "name": "Jamie Zaikov",
+    "email": "jamie.zaikov@arcinstitute.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jamie-zaikov/n8n-nodes-lynx-method-manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jamie-zaikov/n8n-nodes-lynx-method-manager/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/LynxMethodManagerApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/LynxMethodManager/LynxMethodManager.node.js",
+      "dist/nodes/LynxMethodManager/LynxMethodManagerTrigger.node.js"
+    ]
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc --project tsconfig.json && copyfiles \"nodes/**/*.png\" dist",
+    "test": "jest",
+    "lint": "eslint .",
+    "prepublishOnly": "npm run build && npm run lint && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/jest": "29.5.12",
+    "@types/node": "20.14.2",
+    "copyfiles": "^2.4.1",
+    "eslint": "^9.39.4",
+    "globals": "^15.15.0",
+    "jest": "29.7.0",
+    "n8n-workflow": "2.22.2",
+    "ts-jest": "29.1.4",
+    "typescript": "5.4.5",
+    "typescript-eslint": "^8.60.1"
+  }
+}
