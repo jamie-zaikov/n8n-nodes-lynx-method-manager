@@ -2,21 +2,25 @@ name: Publish
 
 # Publishes the package to the public npm registry with build provenance.
 # n8n requires verified community nodes to be published from GitHub Actions with
-# provenance (local `npm publish` is not accepted for verification).
+# provenance (a local `npm publish` is not accepted for verification). Provenance
+# is signed via GitHub's OIDC (`id-token: write` + `--provenance`) and works with
+# token auth, so this satisfies verification on the very first release.
 #
-# Auth uses npm Trusted Publishing (OIDC) — no stored token. One-time setup:
-#   1. Create an npm account and publish an initial 0.x version (or reserve the
-#      name), OR let the first Trusted-Publisher run create it.
-#   2. On npmjs.com → the package's Settings → "Publish access" →
-#      "Trusted Publishers" → Add → GitHub Actions, with:
-#        owner:    jamie-zaikov
-#        repo:     n8n-nodes-lynx-method-manager
-#        workflow: publish.yml
-#   3. Push a version tag to trigger a release, e.g.:
+# One-time setup before the first release:
+#   1. Create an account on npmjs.com.
+#   2. Create an access token with publish rights (Account → Access Tokens →
+#      Generate New Token → "Automation", or a Granular token scoped to publish).
+#   3. Add it to this repo as an Actions secret named NPM_TOKEN:
+#        gh secret set NPM_TOKEN --repo jamie-zaikov/n8n-nodes-lynx-method-manager
+#   4. Publish by pushing a version tag:
 #        git tag v0.1.0 && git push origin v0.1.0
 #
-# (Token fallback: if you prefer an npm automation token over OIDC, add it as
-#  the `NPM_TOKEN` Actions secret and set NODE_AUTH_TOKEN on the publish step.)
+# After the package exists on npm you may (optionally) migrate to npm Trusted
+# Publishing (OIDC, no stored token): configure a Trusted Publisher on the
+# package settings page (owner jamie-zaikov / repo n8n-nodes-lynx-method-manager
+# / workflow publish.yml), then drop NODE_AUTH_TOKEN from the publish step.
+# npm cannot bootstrap a brand-new package via OIDC, which is why the first
+# publish uses a token.
 on:
   push:
     tags: ['v*']
@@ -25,7 +29,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for provenance + Trusted Publishing (OIDC)
+  id-token: write # required for build provenance
 
 jobs:
   publish:
@@ -38,10 +42,6 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-
-      # Trusted Publishing (OIDC) and the provenance flag require a recent npm.
-      - name: Upgrade npm (Trusted Publishing + provenance support)
-        run: npm install -g npm@latest
 
       - name: Install (clean, from lockfile, no native builds)
         run: npm ci --ignore-scripts
@@ -70,3 +70,5 @@ jobs:
 
       - name: Publish (public, with provenance)
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
